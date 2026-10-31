@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rover Face</title>
+<style>
+  :root { --eye: #e9fff9; --glow: #3ef0d0; --amber: #ffb547; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: #cfe; overflow: hidden;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #stage { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6vh; }
+  .eyes { display: flex; gap: 14vw; }
+  .eye { width: 22vw; height: 30vw; max-height: 52vh; max-width: 38vh; background: var(--eye); border-radius: 50%;
+    position: relative; box-shadow: 0 0 6vw rgba(62,240,208,.35), inset 0 0 3vw rgba(62,240,208,.35);
+    transition: transform .09s ease-in; transform-origin: center; overflow: hidden; }
+  .eye.blink { transform: scaleY(.06); }
+  .pupil { position: absolute; width: 42%; height: 36%; background: #001612; border-radius: 50%;
+    left: 29%; top: 32%; transition: transform .35s cubic-bezier(.3,.7,.3,1); }
+  .pupil::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: #fff; top: 18%; left: 20%; opacity: .9; }
+  .mouth { width: 18vw; height: 2.2vw; min-height: 10px; background: #0b0b0b; border: .5vw solid var(--eye);
+    border-radius: 0 0 9vw 9vw; border-top-width: .25vw; transition: height .08s, border-radius .08s; box-shadow: 0 0 3vw rgba(62,240,208,.3); }
+  .mouth.talk { border-radius: 50%; }
+  #status { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 24px; display: flex; justify-content: space-between; gap: 16px;
+    font-size: clamp(14px, 2.2vw, 28px); color: var(--glow); background: linear-gradient(transparent, rgba(0,40,34,.6)); }
+  #status .warn { color: var(--amber); }
+  #enable { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.85); z-index: 5; }
+  #enable button { font: inherit; font-size: clamp(20px, 3.4vw, 44px); padding: 28px 48px; border-radius: 18px; border: 3px solid var(--glow);
+    background: #032; color: var(--eye); cursor: pointer; }
+  #conn { position: fixed; top: 10px; right: 14px; font-size: 13px; opacity: .6; }
+  video, canvas { display: none; }
+  #caption { position: fixed; top: 6vh; left: 8vw; right: 8vw; text-align: center; font-size: clamp(16px, 2.6vw, 32px); color: var(--eye); min-height: 1.4em; opacity: .9; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="eyes">
+    <div class="eye" id="eyeL"><div class="pupil"></div></div>
+    <div class="eye" id="eyeR"><div class="pupil"></div></div>
+  </div>
+  <div class="mouth" id="mouth"></div>
+</div>
+<div id="caption"></div>
+<div id="status"><span id="mission">no mission</span><span id="step"></span><span id="bay"></span></div>
+<div id="conn">connecting…</div>
+<div id="enable"><button id="enableBtn">Enable camera &amp; audio</button></div>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+<script>
+const STEP_NAME = { 1: "ACCEPT", 2: "DRIVE", 3: "ALIGN", 4: "INSPECT", 5: "REPORT" }
+const BAY_NAME = { 1: "A", 2: "B", 3: "C", 4: "D" }
+const $ = (id) => document.getElementById(id)
+const video = $("video"), canvas = $("canvas"), mouth = $("mouth")
+const pupils = document.querySelectorAll(".pupil"), eyes = document.querySelectorAll(".eye")
+let stream = null, ws = null, speaking = false, voice = null
+
+// ---- eyes: blink + look around ----
+function blink() {
+  eyes.forEach((e) => e.classList.add("blink"))
+  setTimeout(() => eyes.forEach((e) => e.classList.remove("blink")), 120)
+  setTimeout(blink, 2200 + Math.random() * 3500)
+}
+function look(x, y) { pupils.forEach((p) => (p.style.transform = `translate(${x}%, ${y}%)`)) }
+function wander() {
+  if (!speaking) look((Math.random() - 0.5) * 110, (Math.random() - 0.5) * 90)
+  setTimeout(wander, 900 + Math.random() * 1800)
+}
+setTimeout(blink, 1500); wander()
+
+// ---- mouth during speech ----
+let mouthTimer = null
+function startTalking() {
+  speaking = true; look(0, 0); mouth.classList.add("talk")
+  clearInterval(mouthTimer)
+  mouthTimer = setInterval(() => { mouth.style.height = (1.5 + Math.random() * 6) + "vw" }, 110)
+}
+function stopTalking() {
+  speaking = false; clearInterval(mouthTimer); mouth.classList.remove("talk"); mouth.style.height = ""
+  setTimeout(() => { if (!speaking) $("caption").textContent = "" }, 2500)
+}
+function pickVoice() {
+  const vs = speechSynthesis.getVoices()
+  voice = vs.find((v) => /en[-_]US/i.test(v.lang) && /Daniel|Alex|Fred|Google US English|Male/i.test(v.name))
+    || vs.find((v) => /^en/i.test(v.lang)) || null
+}
+if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice }
+function say(text) {
+  $("caption").textContent = text
+  if (!("speechSynthesis" in window)) { startTalking(); setTimeout(stopTalking, 60 * text.length); return }
+  const u = new SpeechSynthesisUtterance(text)
+  if (voice) u.voice = voice
+  u.pitch = 0.7; u.rate = 0.98
+  u.onstart = startTalking
+  u.onend = stopTalking
+  u.onerror = stopTalking
+  speechSynthesis.speak(u)
+}
+
+// ---- camera ----
+function grabJpeg() {
+  if (!stream || !video.videoWidth) return null
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight
+  canvas.getContext("2d").drawImage(video, 0, 0)
+  return canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
+}
+$("enableBtn").onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 } }, audio: false })
+    video.srcObject = stream
+  } catch (e) { $("caption").textContent = "camera blocked: " + e.message }
+  if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("Rover online."); u.pitch = 0.7; if (voice) u.voice = voice;
+    u.onstart = startTalking; u.onend = stopTalking; speechSynthesis.speak(u) }
+  $("enable").style.display = "none"
+  document.documentElement.requestFullscreen?.().catch(() => {})
+}
+setInterval(() => {
+  const jpegBase64 = grabJpeg()
+  if (jpegBase64 && ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "frame", id: null, jpegBase64 }))
+}, 2000)
+
+// ---- websocket to server ----
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/face")
+  ws.onopen = () => { $("conn").textContent = "● linked" }
+  ws.onclose = () => { $("conn").textContent = "○ reconnecting…"; setTimeout(connect, 1500) }
+  ws.onerror = () => ws.close()
+  ws.onmessage = (ev) => {
+    let msg; try { msg = JSON.parse(ev.data) } catch { return }
+    if (msg.type === "capture") {
+      look(0, 0)
+      ws.send(JSON.stringify({ type: "frame", id: msg.id, jpegBase64: grabJpeg() || "" }))
+    } else if (msg.type === "say" && msg.text) say(msg.text)
+  }
+}
+connect()
+
+// ---- status line ----
+async function poll() {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" })
+    if (!r.ok) throw new Error("actors offline")
+    const { rover } = await r.json()
+    const m = rover.missions.find((x) => x.id === rover.currentMissionId)
+    if (rover.mode === "estopped") { $("mission").innerHTML = '<span class="warn">E-STOP</span>' }
+    else $("mission").textContent = m ? `${m.id} · ${m.from}` : `idle · ${rover.mode}`
+    $("step").textContent = m ? `step ${m.step}/5 ${STEP_NAME[m.step]}` : ""
+    $("bay").textContent = m ? `BAY ${BAY_NAME[m.bay]}` : (rover.pose.at ? `at ${rover.pose.at === 5 ? "HOME" : "BAY " + BAY_NAME[rover.pose.at]}` : "pose unknown")
+  } catch {
+    $("mission").innerHTML = '<span class="warn">actor server offline</span>'; $("step").textContent = ""; $("bay").textContent = ""
+  }
+}
+setInterval(poll, 1000); poll()
+</script>
+</body>
+</html>

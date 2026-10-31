@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ghost Shipments</title>
+<style>
+  :root {
+    --bg: #07080a; --panel: #0f1215; --line: #1d2328; --text: #d8dee2; --dim: #6f7c85;
+    --amber: #ffb547; --teal: #3ee6c4; --red: #ff4d5e; --green: #3ddc84; --violet: #b69cff;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Inter", system-ui, -apple-system, sans-serif; }
+  body { background: radial-gradient(1200px 600px at 70% -10%, rgba(62,230,196,.07), transparent 60%), radial-gradient(900px 500px at 0% 110%, rgba(255,181,71,.06), transparent 60%), var(--bg); }
+  .app { height: 100vh; display: grid; grid-template-rows: auto 1fr 1fr; gap: 12px; padding: 12px 14px; }
+  header { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 800; letter-spacing: .02em; }
+  .brand svg { width: 42px; height: 42px; filter: drop-shadow(0 0 10px rgba(62,230,196,.5)); }
+  .brand small { display: block; font-size: 13px; font-weight: 500; color: var(--dim); letter-spacing: .12em; text-transform: uppercase; }
+  .clock { font-family: var(--mono); font-size: 26px; color: var(--amber); margin-left: 8px; }
+  .spacer { flex: 1; }
+  .pill { font-family: var(--mono); font-weight: 700; font-size: 18px; padding: 8px 16px; border-radius: 999px; border: 2px solid; text-transform: uppercase; min-width: 150px; text-align: center; }
+  .pill.idle { color: var(--teal); border-color: var(--teal); }
+  .pill.executing { color: var(--amber); border-color: var(--amber); box-shadow: 0 0 18px rgba(255,181,71,.35); }
+  .pill.estopped { color: #fff; background: var(--red); border-color: var(--red); animation: pulse 1s infinite; }
+  .pill.offline { color: var(--dim); border-color: var(--dim); }
+  @keyframes pulse { 50% { opacity: .55; } }
+  button { font: inherit; cursor: pointer; }
+  .btn { background: transparent; color: var(--text); border: 1.5px solid var(--line); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 16px; }
+  .btn:hover { border-color: var(--teal); color: var(--teal); }
+  .estop { background: var(--red); color: #fff; border: 3px solid #ffd0d5; border-radius: 14px; padding: 12px 26px; font-weight: 900; font-size: 22px; letter-spacing: .06em;
+    box-shadow: 0 0 0 4px rgba(255,77,94,.25), 0 6px 24px rgba(255,77,94,.4); }
+  .estop:active { transform: translateY(1px); }
+  .demo-banner { font-family: var(--mono); font-size: 14px; color: #111; background: var(--amber); padding: 6px 12px; border-radius: 8px; font-weight: 800; }
+  .row { display: grid; gap: 12px; min-height: 0; }
+  .row.top { grid-template-columns: 1.15fr 1fr 1.25fr; }
+  .row.bottom { grid-template-columns: 1.15fr 1fr 1.25fr; }
+  .panel { background: linear-gradient(180deg, rgba(255,255,255,.015), transparent), var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .panel h2 .live { color: var(--red); font-family: var(--mono); }
+  .cam { flex: 1; min-height: 0; border-radius: 10px; background: #000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .cam img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.85) contrast(1.05); }
+  .cam .nofeed { position: absolute; color: var(--dim); font-family: var(--mono); font-size: 16px; text-align: center; }
+  .cam .ts { position: absolute; left: 10px; bottom: 8px; font-family: var(--mono); font-size: 14px; color: var(--teal); text-shadow: 0 0 4px #000; }
+  .cam::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px); pointer-events: none; }
+  .map { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .map svg { width: 100%; height: 100%; }
+  .bays { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 0; }
+  .bay { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }
+  .bay .bn { font-size: 14px; color: var(--dim); letter-spacing: .14em; font-weight: 700; display: flex; justify-content: space-between; }
+  .bay .sid { font-family: var(--mono); font-size: 26px; font-weight: 800; }
+  .bay .dst { color: var(--dim); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bay .st { font-family: var(--mono); font-weight: 800; font-size: 18px; }
+  .bay.staged .st { color: var(--green); }
+  .bay.hold .st { color: var(--amber); }
+  .bay.missing { border-color: var(--violet); background: rgba(182,156,255,.07); box-shadow: inset 0 0 24px rgba(182,156,255,.12); }
+  .bay.missing .st { color: var(--violet); }
+  .bay.missing .sid { text-decoration: line-through; text-decoration-color: rgba(182,156,255,.6); opacity: .8; }
+  .bay.target { outline: 2px dashed var(--amber); outline-offset: 2px; }
+  .missions { display: flex; flex-direction: column; gap: 8px; overflow: hidden; flex: 1; }
+  .mission { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+  .mission.active { border-color: var(--amber); background: rgba(255,181,71,.06); }
+  .mission.done { opacity: .55; } .mission.failed { opacity: .55; border-color: rgba(255,77,94,.5); }
+  .chip { font-family: var(--mono); font-weight: 800; font-size: 16px; padding: 3px 9px; border-radius: 7px; }
+  .chip.p1 { background: var(--red); color: #fff; } .chip.p2 { background: var(--amber); color: #111; } .chip.p3 { background: #39424a; color: #dde; }
+  .mission .who { font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mission .mid { font-family: var(--mono); color: var(--dim); font-size: 14px; }
+  .mission .meta { grid-column: 2 / 4; color: var(--dim); font-size: 14px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .mission .stepbar { display: inline-flex; gap: 3px; } .stepbar i { width: 18px; height: 6px; border-radius: 3px; background: #2a3238; display: inline-block; }
+  .stepbar i.on { background: var(--amber); }
+  .possessed { color: var(--violet); font-weight: 700; }
+  .feed { list-style: none; margin: 0; padding: 0; overflow: hidden; flex: 1; font-size: 15px; }
+  .feed li { padding: 6px 0; border-bottom: 1px dashed #1a2025; display: grid; grid-template-columns: 74px 1fr; gap: 8px; line-height: 1.3; }
+  .feed .t { font-family: var(--mono); color: var(--dim); font-size: 13px; padding-top: 2px; }
+  .feed .src { font-family: var(--mono); color: var(--teal); font-weight: 700; margin-right: 6px; }
+  .feed li.reject { color: var(--red); } .feed li.reject .src { color: var(--red); }
+  .feed li.error { color: #ff8a95; }
+  .feed li.relay .src { color: var(--amber); }
+  .feed li.relay .msg::before { content: "💬 "; }
+  .result { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.1fr; gap: 12px; }
+  .result .photo { background: #000; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--dim); font-family: var(--mono); font-size: 14px; }
+  .result .photo img { width: 100%; height: 100%; object-fit: cover; }
+  .verdict { font-family: var(--mono); font-weight: 900; font-size: 34px; letter-spacing: .04em; }
+  .verdict.confirmed { color: var(--green); } .verdict.ghost { color: var(--violet); text-shadow: 0 0 18px rgba(182,156,255,.6); }
+  .verdict.mismatch, .verdict.damaged { color: var(--amber); } .verdict.inconclusive { color: var(--dim); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 15px; margin-top: 8px; }
+  .kv span:nth-child(odd) { color: var(--dim); } .kv span:nth-child(even) { font-family: var(--mono); }
+  .summary { margin-top: 10px; font-size: 17px; line-height: 1.35; color: #eef; }
+  .empty-note { color: var(--dim); font-family: var(--mono); font-size: 15px; }
+  @media (max-width: 1100px) { .app { height: auto; grid-template-rows: auto; } .row.top, .row.bottom { grid-template-columns: 1fr; } .panel { min-height: 320px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4c-13 0-22 10-22 23v31l6-5 5 5 5-5 6 5 6-5 5 5 5-5 6 5V27C54 14 45 4 32 4z" fill="#e9fff9"/><ellipse cx="24" cy="28" rx="4.5" ry="6" fill="#07080a"/><ellipse cx="40" cy="28" rx="4.5" ry="6" fill="#07080a"/></svg>
+      <div>Ghost Shipments<small>Night-shift remote hands · #warehouse</small></div>
+    </div>
+    <div class="clock" id="clock">03:00:00</div>
+    <span class="demo-banner" id="demo" hidden>DEMO DATA — actor server not running</span>
+    <div class="spacer"></div>
+    <span class="pill offline" id="mode">offline</span>
+    <button class="btn" id="resetBtn">Reset demo</button>
+    <button class="btn" id="resumeBtn">Resume</button>
+    <button class="estop" id="estopBtn">⏹ EMERGENCY STOP</button>
+  </header>
+
+  <section class="row top">
+    <div class="panel"><h2>Rover camera <span class="live" id="camLive">● LIVE</span></h2>
+      <div class="cam"><img id="cam" alt="" hidden /><div class="nofeed" id="nofeed">NO SIGNAL<br/>open /face on the rover</div><div class="ts" id="camTs"></div></div>
+    </div>
+    <div class="panel"><h2>Floor map <span id="poseTxt" style="font-family:var(--mono)"></span></h2>
+      <div class="map"><svg id="map" viewBox="0 0 300 300"></svg></div>
+    </div>
+    <div class="panel"><h2>Latest result <span id="resMid" style="font-family:var(--mono)"></span></h2>
+      <div class="result" id="result"></div>
+    </div>
+  </section>
+
+  <section class="row bottom">
+    <div class="panel"><h2>Bays</h2><div class="bays" id="bays"></div></div>
+    <div class="panel"><h2>Mission queue <span id="qcount" style="font-family:var(--mono)"></span></h2><div class="missions" id="missions"></div></div>
+    <div class="panel"><h2>Event feed <span id="hb" style="font-family:var(--mono)"></span></h2><ul class="feed" id="feed"></ul></div>
+  </section>
+</div>
+
+<script>
+const STEP_NAME = { 1: "ACCEPT", 2: "DRIVE", 3: "ALIGN", 4: "INSPECT", 5: "REPORT" }
+const BAY_NAME = { 1: "A", 2: "B", 3: "C", 4: "D" }
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
+const hhmmss = (t) => new Date(t).toLocaleTimeString([], { hour12: false })
+
+// ---------- sample data (shown only when the actor server is down) ----------
+const now = Date.now()
+const DEMO = {
+  rover: {
+    missions: [
+      { id: "M-0001", from: "shipping-agent", priority: 1, bay: 2, shipmentId: "SHP-1042", question: "is SHP-1042 there?", status: "active", step: 4, createdAt: now - 60000 },
+      { id: "M-0002", from: "inventory-agent", priority: 2, bay: 4, shipmentId: "SHP-1051", question: "cycle count bay D", status: "queued", step: 1, createdAt: now - 59000 },
+      { id: "M-0000", from: "shipping-agent", priority: 3, bay: 1, shipmentId: "SHP-1038", question: "check A", status: "done", step: 5, createdAt: now - 600000,
+        result: { verdict: "ghost", photoUrl: null, inspection: { present: false, shipmentId: null, destination: null, damaged: false, labelStatus: "unknown", confidence: 0.91, summary: "Bay A is empty. No package, no label. SHP-1038 is a ghost shipment." } } },
+    ],
+    currentMissionId: "M-0001", possessedBy: "shipping-agent", leaseExpiry: now + 30000,
+    pose: { at: 2, heading: 90 }, mode: "executing", lastHeartbeat: now, lastEvidenceUrl: null,
+    log: [
+      { t: now - 61000, source: "relay", text: "shipping-agent: @rover check bay B: is SHP-1042 there, what does the label say, any damage?" },
+      { t: now - 60500, source: "relay", text: "inventory-agent: @rover cycle count bay D please" },
+      { t: now - 60000, source: "actor", text: "M-0001 queued P1 · M-0002 queued P2" },
+      { t: now - 58000, source: "inventory-agent", text: "drive refused: rover is possessed by shipping-agent", kind: "reject" },
+      { t: now - 50000, source: "rover", text: "M-0001 step 2/5 DRIVE 5 → 2" },
+      { t: now - 20000, source: "rover", text: "M-0001 step 4/5 INSPECT" },
+    ],
+  },
+  warehouse: { bays: {
+    1: { shipmentId: "SHP-1038", destination: "OAKLAND, CA", status: "missing" },
+    2: { shipmentId: "SHP-1042", destination: "RENO, NV", status: "staged" },
+    3: { shipmentId: "SHP-1047", destination: "FRESNO, CA", status: "hold" },
+    4: { shipmentId: "SHP-1051", destination: "PORTLAND, OR", status: "staged" },
+  } },
+}
+
+let rover = null, warehouse = null, demo = false
+
+// ---------- render ----------
+const PT = { 1: [150, 45], 2: [255, 150], 3: [150, 255], 4: [45, 150], 5: [150, 150] }
+function renderMap() {
+  const at = rover?.pose?.at ?? null, hd = rover?.pose?.heading ?? 0
+  const cur = rover?.missions?.find((m) => m.id === rover.currentMissionId)
+  let s = `<defs><filter id="g"><feGaussianBlur stdDeviation="3"/></filter></defs>`
+  for (const p of [1, 2, 3, 4]) s += `<line x1="150" y1="150" x2="${PT[p][0]}" y2="${PT[p][1]}" stroke="#26313a" stroke-width="10" stroke-linecap="round"/>`
+  if (cur && cur.status === "active") s += `<line x1="150" y1="150" x2="${PT[cur.bay][0]}" y2="${PT[cur.bay][1]}" stroke="#ffb547" stroke-width="3" stroke-dasharray="6 6" opacity=".9"/>`
+  for (const p of [1, 2, 3, 4]) {
+    const st = warehouse?.bays?.[p]?.status, col = st === "missing" ? "#b69cff" : st === "hold" ? "#ffb547" : "#3ddc84"
+    const [x, y] = PT[p]
+    s += `<rect x="${x - 26}" y="${y - 20}" width="52" height="40" rx="8" fill="#0b0e11" stroke="${col}" stroke-width="2.5"/>`
+    s += `<text x="${x}" y="${y + 6}" fill="${col}" font-family="ui-monospace,Menlo,monospace" font-size="17" font-weight="800" text-anchor="middle">${st === "missing" ? "👻" : BAY_NAME[p]}</text>`
+    const lx = p === 2 ? x : p === 4 ? x : x, ly = p === 1 ? y - 28 : p === 3 ? y + 36 : y + 36
+    s += `<text x="${lx}" y="${ly}" fill="#6f7c85" font-family="system-ui" font-size="11" text-anchor="middle">${p} · BAY ${BAY_NAME[p]}</text>`
+  }
+  s += `<circle cx="150" cy="150" r="22" fill="#0b0e11" stroke="#3ee6c4" stroke-width="2"/><text x="150" y="154" fill="#3ee6c4" font-family="system-ui" font-size="10" font-weight="700" text-anchor="middle">HOME</text>`
+  if (at) {
+    const [x, y] = PT[at]
+    s += `<g transform="translate(${x} ${y}) rotate(${hd})"><circle r="14" fill="#ffb547" filter="url(#g)" opacity=".7"/><circle r="11" fill="#ffb547"/><path d="M0 -24 L8 -12 L-8 -12 Z" fill="#ffb547"/></g>`
+    $("poseTxt").textContent = `${at === 5 ? "HOME" : "BAY " + BAY_NAME[at]} · ${hd}°`
+  } else {
+    s += `<text x="150" y="290" fill="#ff4d5e" font-family="ui-monospace,Menlo,monospace" font-size="14" font-weight="800" text-anchor="middle">POSE UNKNOWN — re-home</text>`
+    $("poseTxt").textContent = rover ? "unknown" : ""
+  }
+  $("map").innerHTML = s
+}
+function renderBays() {
+  const cur = rover?.missions?.find((m) => m.id === rover.currentMissionId)
+  let h = ""
+  for (const b of [1, 2, 3, 4]) {
+    const s = warehouse?.bays?.[b] || { shipmentId: "—", destination: "—", status: "staged" }
+    const label = s.status === "missing" ? "👻 GHOST" : s.status === "hold" ? "HOLD" : "STAGED"
+    h += `<div class="bay ${s.status} ${cur && cur.bay === b ? "target" : ""}"><div class="bn"><span>BAY ${BAY_NAME[b]}</span><span>#${b}</span></div>
+      <div class="sid">${esc(s.shipmentId)}</div><div class="dst">→ ${esc(s.destination)}</div><div class="st">${label}</div></div>`
+  }
+  $("bays").innerHTML = h
+}
+function renderMissions() {
+  const ms = [...(rover?.missions || [])]
+  const order = { active: 0, queued: 1, done: 2, failed: 2 }
+  ms.sort((a, b) => order[a.status] - order[b.status] || (a.status === "queued" ? a.priority - b.priority : b.createdAt - a.createdAt))
+  $("qcount").textContent = `${ms.filter((m) => m.status === "queued").length} queued`
+  if (!ms.length) { $("missions").innerHTML = `<div class="empty-note">No missions. Quiet night… for now.</div>`; return }
+  $("missions").innerHTML = ms.slice(0, 5).map((m) => {
+    const bar = [1, 2, 3, 4, 5].map((i) => `<i class="${m.status === "done" || i <= m.step && m.status === "active" ? "on" : ""}"></i>`).join("")
+    const poss = m.status === "active" && rover.possessedBy ? `<span class="possessed">👻 possessed by ${esc(rover.possessedBy)}</span>` : ""
+    const stat = m.status === "active" ? `step ${m.step}/5 ${STEP_NAME[m.step]}` : m.status === "done" ? (m.result?.verdict || "done").toUpperCase() : m.status.toUpperCase()
+    return `<div class="mission ${m.status}"><span class="chip p${m.priority}">P${m.priority}</span><span class="who">${esc(m.from)} → Bay ${BAY_NAME[m.bay]} · ${esc(m.shipmentId)}</span><span class="mid">${esc(m.id)}</span>
+      <div class="meta"><span class="stepbar">${bar}</span><span style="font-family:var(--mono)">${stat}</span>${poss}${m.error ? `<span style="color:var(--red)">${esc(m.error)}</span>` : ""}</div></div>`
+  }).join("")
+}
+function renderFeed() {
+  const log = [...(rover?.log || [])].reverse().slice(0, 30)
+  $("feed").innerHTML = log.map((e) => {
+    let src = e.source, text = e.text, cls = e.kind || ""
+    if (e.source === "relay") { const i = text.indexOf(": "); if (i > 0 && i < 40) { src = "@" + text.slice(0, i); text = text.slice(i + 2) } cls += " relay" }
+    return `<li class="${cls}"><span class="t">${hhmmss(e.t)}</span><span><span class="src">${esc(src)}</span><span class="msg">${esc(text)}</span></span></li>`
+  }).join("") || `<li><span></span><span class="empty-note">waiting for events…</span></li>`
+}
+function renderResult() {
+  const done = (rover?.missions || []).filter((m) => m.result).sort((a, b) => b.createdAt - a.createdAt)[0]
+  const photo = rover?.lastEvidenceUrl || done?.result?.photoUrl
+  const photoHtml = photo ? `<img src="${esc(photo)}" alt="evidence"/>` : `<span>no evidence photo yet</span>`
+  if (!done) { $("resMid").textContent = ""; $("result").innerHTML = `<div class="photo">${photoHtml}</div><div class="empty-note">No inspection reported yet.</div>`; return }
+  const r = done.result, i = r.inspection
+  $("resMid").textContent = done.id
+  const verdict = r.verdict === "ghost" ? "👻 GHOST" : r.verdict.toUpperCase()
+  $("result").innerHTML = `<div class="photo">${photoHtml}</div><div>
+    <div class="verdict ${r.verdict}">${verdict}</div>
+    <div class="kv"><span>Expected</span><span>${esc(done.shipmentId)} · Bay ${BAY_NAME[done.bay]}</span>
+      ${i ? `<span>Read</span><span>${esc(i.shipmentId || "—")}</span><span>Dest</span><span>${esc(i.destination || "—")}</span>
+      <span>Label</span><span>${esc(i.labelStatus.toUpperCase())}${i.damaged ? " · DAMAGED" : ""}</span><span>Conf.</span><span>${Math.round(i.confidence * 100)}%</span>` : ""}
+      <span>Asked by</span><span>${esc(done.from)}</span></div>
+    ${i ? `<div class="summary">“${esc(i.summary)}”</div>` : ""}</div>`
+}
+function render() {
+  $("demo").hidden = !demo
+  const mode = rover?.mode || "offline"
+  $("mode").className = "pill " + mode; $("mode").textContent = mode
+  $("hb").textContent = rover?.lastHeartbeat ? `♥ ${Math.max(0, Math.round((Date.now() - rover.lastHeartbeat) / 1000))}s ago` : ""
+  renderMap(); renderBays(); renderMissions(); renderFeed(); renderResult()
+}
+let raf = 0
+const scheduleRender = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render() }) }
+
+// ---------- data: actor websockets, polling fallback ----------
+const live = { Rover: false, Warehouse: false }
+function applyMsg(actor, msg) {
+  const set = (v) => { if (actor === "Rover") rover = v; else warehouse = v }
+  const get = () => (actor === "Rover" ? rover : warehouse)
+  if (msg?.type === "state") set(msg.state ?? msg.data ?? msg.value)
+  else if (msg?.type === "state_update") set({ ...(get() || {}), ...(msg.changes || {}) })
+  else if (msg && !msg.type && (msg.missions || msg.bays)) set(msg)
+  else return
+  demo = false; scheduleRender()
+}
+async function openActorSocket(actor) {
+  try {
+    const r = await fetch(`/api/ws-url?actor=${actor}`, { cache: "no-store" })
+    if (!r.ok) throw new Error("no grant")
+    const { websocketUrl } = await r.json()
+    const ws = new WebSocket(websocketUrl)
+    ws.onopen = () => { live[actor] = true }
+    ws.onmessage = (ev) => { try { applyMsg(actor, JSON.parse(ev.data)) } catch {} }
+    ws.onclose = () => { live[actor] = false; setTimeout(() => openActorSocket(actor), 3000) }
+    ws.onerror = () => ws.close()
+  } catch { live[actor] = false; setTimeout(() => openActorSocket(actor), 5000) }
+}
+async function poll() {
+  if (live.Rover && live.Warehouse) return
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" })
+    if (!r.ok) throw new Error(String(r.status))
+    const s = await r.json()
+    if (!live.Rover) rover = s.rover
+    if (!live.Warehouse) warehouse = s.warehouse
+    demo = false
+  } catch {
+    if (!live.Rover && !live.Warehouse) { rover = DEMO.rover; warehouse = DEMO.warehouse; demo = true }
+  }
+  scheduleRender()
+}
+openActorSocket("Rover"); openActorSocket("Warehouse")
+poll(); setInterval(poll, 1000)
+setInterval(() => { $("clock").textContent = hhmmss(Date.now()); if (rover) $("hb").textContent = rover.lastHeartbeat ? `♥ ${Math.max(0, Math.round((Date.now() - rover.lastHeartbeat) / 1000))}s ago` : "" }, 1000)
+
+// ---------- camera ----------
+const cam = $("cam")
+let camBusy = false
+async function refreshCam() {
+  if (camBusy) return; camBusy = true
+  try {
+    const r = await fetch("/api/last-frame", { cache: "no-store" })
+    if (r.status === 200) {
+      const blob = await r.blob(), url = URL.createObjectURL(blob), old = cam.src
+      cam.onload = () => { if (old) URL.revokeObjectURL(old) }
+      cam.src = url; cam.hidden = false; $("nofeed").hidden = true
+      const t = Number(r.headers.get("X-Frame-Time")); $("camTs").textContent = t ? `REC ${hhmmss(t)}` : ""
+      $("camLive").style.visibility = t && Date.now() - t < 6000 ? "visible" : "hidden"
+    } else { cam.hidden = true; $("nofeed").hidden = false; $("camLive").style.visibility = "hidden" }
+  } catch {} finally { camBusy = false }
+}
+refreshCam(); setInterval(refreshCam, 1000)
+
+// ---------- controls ----------
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) })
+    if (!r.ok) flash((await r.json().catch(() => ({}))).message || `failed (${r.status})`)
+  } catch (e) { flash("server unreachable") }
+  poll()
+}
+function flash(text) { const d = $("demo"); const was = d.hidden; d.hidden = false; const old = d.textContent; d.textContent = text; setTimeout(() => { d.textContent = old; d.hidden = was && !demo }, 2500) }
+$("estopBtn").onclick = () => post("/api/estop")
+$("resumeBtn").onclick = () => post("/api/resume")
+$("resetBtn").onclick = () => { if (confirm("Reset the demo (rover + warehouse)?")) post("/api/reset") }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); post("/api/estop") } })
+render()
+</script>
+</body>
+</html>

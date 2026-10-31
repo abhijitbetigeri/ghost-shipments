@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Bay Label</title>
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; height: 100%; background: #c9b48f; font-family: "Helvetica Neue", Arial, sans-serif; color: #111; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3vw; gap: 3vw; }
+  .label { width: 100%; max-width: 640px; background: #fff; border: 3px solid #111; border-radius: 6px; box-shadow: 0 6px 22px rgba(0,0,0,.35); }
+  .row { border-bottom: 3px solid #111; padding: 10px 14px; }
+  .row:last-child { border-bottom: 0; }
+  .top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: clamp(14px, 4vw, 22px); }
+  .top .carrier { letter-spacing: .08em; }
+  .small { font-size: clamp(11px, 3vw, 15px); text-transform: uppercase; letter-spacing: .06em; color: #333; font-weight: 700; }
+  .ship { font-weight: 900; font-size: clamp(48px, 17vw, 110px); line-height: .95; letter-spacing: -.02em; font-family: "Arial Black", Arial, sans-serif; }
+  .dest { font-weight: 800; font-size: clamp(20px, 7vw, 40px); }
+  .split { display: flex; padding: 0; }
+  .split > div { flex: 1; padding: 10px 14px; }
+  .split > div + div { border-left: 3px solid #111; }
+  .bayname { font-weight: 900; font-size: clamp(40px, 14vw, 88px); line-height: 1; }
+  .barcode { height: clamp(70px, 20vw, 120px); display: flex; align-items: stretch; gap: 0; margin: 4px 0; }
+  .barcode i { display: block; background: #111; }
+  .bcnum { text-align: center; font-family: ui-monospace, Menlo, monospace; letter-spacing: .3em; font-size: clamp(12px, 3.4vw, 18px); }
+  .band { text-align: center; font-weight: 900; color: #fff; font-size: clamp(36px, 12vw, 76px); padding: 8px; letter-spacing: .08em; }
+  .band.ready { background: #1f9d4a; }
+  .band.hold { background: #d22; }
+  .empty { width: 100%; max-width: 640px; aspect-ratio: 3/4; background: repeating-linear-gradient(180deg, #8a7553 0 28%, #5a4a32 28% 31%);
+    border: 6px solid #4b3c27; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #2b2116; }
+  .empty b { font-size: clamp(56px, 20vw, 130px); font-weight: 900; letter-spacing: .1em; opacity: .55; }
+  .empty span { font-size: clamp(16px, 5vw, 26px); font-weight: 700; opacity: .55; }
+  button.remove { font-size: clamp(16px, 4.5vw, 22px); padding: 14px 22px; border-radius: 12px; border: 2px solid #4b3c27; background: #f1e6d0; font-weight: 700; }
+  #corner { position: fixed; top: 0; right: 0; width: 70px; height: 70px; }
+  #msg { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 12px; color: #4b3c27; opacity: .7; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="label" id="label">
+  <div class="row top"><span class="carrier">NIGHTOWL FREIGHT</span><span>PRIORITY</span></div>
+  <div class="row"><div class="small">Shipment ID</div><div class="ship" id="ship">SHP-1042</div></div>
+  <div class="row"><div class="small">Ship to</div><div class="dest" id="dest">—</div></div>
+  <div class="row split">
+    <div><div class="small">Staging</div><div class="bayname" id="bayname">BAY B</div></div>
+    <div><div class="small">Truck</div><div class="dest">06:00</div><div class="small" style="margin-top:6px">Wt 18.4 kg · 1/1</div></div>
+  </div>
+  <div class="row"><div class="barcode" id="barcode"></div><div class="bcnum" id="bcnum"></div></div>
+  <div class="band ready" id="band">READY</div>
+</div>
+<div class="empty" id="empty" hidden><b>EMPTY</b><span id="emptySub">Bay B · no package</span></div>
+<button class="remove" id="removeBtn">Remove package</button>
+<div id="corner" title="long-press to reset"></div>
+<div id="msg"></div>
+<script>
+const BAY_NAME = { 1: "A", 2: "B", 3: "C", 4: "D" }
+const bay = Math.min(4, Math.max(1, Number(new URLSearchParams(location.search).get("bay")) || 2))
+const $ = (id) => document.getElementById(id)
+const FALLBACK = { 1: ["SHP-1038", "OAKLAND, CA"], 2: ["SHP-1042", "RENO, NV"], 3: ["SHP-1047", "FRESNO, CA"], 4: ["SHP-1051", "PORTLAND, OR"] }
+let slot = { shipmentId: FALLBACK[bay][0], destination: FALLBACK[bay][1], status: "staged" }
+let lastKey = ""
+
+function barcode(seed) {
+  let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  const bars = []
+  for (let i = 0; i < 64; i++) { h = (h * 1103515245 + 12345) >>> 0; const w = 1 + (h >>> 28) % 4; bars.push(`<i style="flex:${w};margin-right:${(h >>> 24) % 3 + 1}px"></i>`) }
+  return bars.join("")
+}
+function render() {
+  const key = JSON.stringify(slot); if (key === lastKey) return; lastKey = key
+  document.title = `Bay ${BAY_NAME[bay]} · ${slot.shipmentId}`
+  const missing = slot.status === "missing"
+  $("label").hidden = missing; $("removeBtn").hidden = missing; $("empty").hidden = !missing
+  $("ship").textContent = slot.shipmentId
+  $("dest").textContent = slot.destination
+  $("bayname").textContent = "BAY " + BAY_NAME[bay]
+  $("emptySub").textContent = `Bay ${BAY_NAME[bay]} · no package`
+  $("barcode").innerHTML = barcode(slot.shipmentId)
+  $("bcnum").textContent = "1Z " + slot.shipmentId.replace(/\D/g, "").padStart(8, "0") + " " + BAY_NAME[bay]
+  const hold = slot.status === "hold"
+  $("band").className = "band " + (hold ? "hold" : "ready"); $("band").textContent = hold ? "HOLD" : "READY"
+}
+async function setStatus(status) {
+  slot = { ...slot, status }; render()
+  try {
+    const r = await fetch(`/api/bay/${bay}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) })
+    $("msg").textContent = r.ok ? "" : "actor server offline (local only)"
+  } catch { $("msg").textContent = "server unreachable" }
+}
+$("removeBtn").onclick = () => setStatus("missing")
+let pressT = null
+const corner = $("corner")
+const startPress = (e) => { e.preventDefault(); pressT = setTimeout(() => setStatus("staged"), 1200) }
+const endPress = () => clearTimeout(pressT)
+corner.addEventListener("touchstart", startPress); corner.addEventListener("mousedown", startPress)
+corner.addEventListener("touchend", endPress); corner.addEventListener("mouseup", endPress); corner.addEventListener("mouseleave", endPress)
+
+async function poll() {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" })
+    if (!r.ok) throw 0
+    const { warehouse } = await r.json()
+    const s = warehouse?.bays?.[bay]
+    if (s) { slot = s; $("msg").textContent = "" }
+  } catch { $("msg").textContent = "actor server offline" }
+  render()
+}
+render(); poll(); setInterval(poll, 1000)
+// keep screen awake where supported
+navigator.wakeLock?.request?.("screen").catch(() => {})
+</script>
+</body>
+</html>

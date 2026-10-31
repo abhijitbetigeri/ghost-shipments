@@ -1,0 +1,14 @@
+{
+  "name": "smart-physystem",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "rover": "npm run start -w apps/rover",
+    "server": "npm run start -w apps/server",
+    "agents": "npm run start -w apps/agents",
+    "conflict": "npm run conflict -w apps/agents"
+  }
+}

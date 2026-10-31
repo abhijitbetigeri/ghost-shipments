@@ -29,11 +29,11 @@ process.on("SIGINT", () => void shutdown("SIGINT"))
 process.on("SIGTERM", () => void shutdown("SIGTERM"))
 process.on("unhandledRejection", (e) => console.error("[rover] unhandledRejection:", e))
 
-startHeartbeat(2000)
+startHeartbeat(4000)
 logEvent("rover", `rover process up (link ${link.name})`)
 
 const exec = new Executor(rover)
-exec.startStateWatch(1500) // the dev actor serialises calls; polling faster piles them up
+exec.startStateWatch(3000) // the dev actor serialises calls; polling faster piles them up
 // Agent Relay's hosted service returns 503 under load; keep retrying in the background
 // so the executor runs now and Relay attaches whenever the connect succeeds.
 void (async () => {

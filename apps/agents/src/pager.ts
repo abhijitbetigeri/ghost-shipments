@@ -28,8 +28,18 @@ export async function startPager(handle: string, onMsg?: (m: RelayMessage, p: Pa
         threads,
         async pageRover(bay, shipmentId, reason, priority = 1) {
             const text = `@rover check bay ${BAY_NAME[bay]}: is ${shipmentId} there? what does the label say, any damage? (P${priority}, ${reason})`
-            const r = await relay.send("#warehouse", text)
-            threads.set(r.messageId, { bay, shipmentId, priority })
+            // Relay's hosted service times out under load: retry the page a few times before giving up.
+            let r: { messageId: string } | null = null
+            for (let attempt = 1; attempt <= 4 && !r; attempt++) {
+                try {
+                    r = await relay.send("#warehouse", text)
+                } catch (e) {
+                    console.warn(`[${handle}] page send failed (attempt ${attempt}/4): ${(e as Error).message}`)
+                    if (attempt === 4) throw e
+                    await new Promise((res) => setTimeout(res, 3000))
+                }
+            }
+            threads.set(r!.messageId, { bay, shipmentId, priority })
             console.log(`[${handle}] -> #warehouse: ${text}`)
             void logEvent(handle, text)
             void logEvent("relay", `${handle}: ${text}`)

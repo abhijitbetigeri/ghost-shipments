@@ -43,7 +43,7 @@ export async function startPager(handle: string, onMsg?: (m: RelayMessage, p: Pa
             console.log(`[${handle}] -> #warehouse: ${text}`)
             void logEvent(handle, text)
             void logEvent("relay", `${handle}: ${text}`)
-            return r
+            return r!
         },
         async reply(messageId, text) {
             const r = await relay.reply(messageId, text)

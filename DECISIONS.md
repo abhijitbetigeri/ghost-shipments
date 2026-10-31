@@ -33,7 +33,22 @@ with a photo. `shipping-agent` then files a Supabase exception ticket. A **ghost
             |                    heading: toward 1 = 0°, 2 = 90°, 3 = 180°, 4 = 270°
             3  Bay C             every path goes through 5
 ```
-Each bay gets a cardboard box with a **shipping label**: a phone showing the `/bay` page, or a printout. `ARM_CM` defaults to 80.
+**No physical boxes. Bays are floor coordinates** (cm, rover starts at HOME facing Bay A):
+
+| Point | Name | x, y (cm) |
+|---|---|---|
+| 5 | HOME / dock | 0, 0 |
+| 1 | Bay A | 0, +80 |
+| 2 | Bay B | +80, 0 |
+| 3 | Bay C | 0, -80 |
+| 4 | Bay D | -80, 0 |
+
+- `ARM_CM` = 80 for every arm (change in `apps/rover/calibration.json` if the space is smaller). A small tape "x" at HOME and Bay B helps
+  calibration and re-homing but isn't required.
+- **The "package" is a screen:** a teammate stands about 40 cm past Bay B, crouched so the screen is at the rover's camera height, and holds a phone
+  showing `/bay?bay=2` (the shipping label) facing the rover. For the **ghost shipment**, they tap "Remove package" (an empty-shelf screen)
+  or simply step away. A printed label taped to a chair leg works too.
+- The ultrasonic sensor stops the rover if it gets within 20 cm of the person, so standing ~40 cm past the bay point is safe.
 
 ## Firmware serial protocol (NEW firmware, `firmware/rover/rover.ino`)
 115200 baud, newline-terminated, one reply line per command. Boot prints `READY`.

@@ -46,7 +46,9 @@ function parseReport(text: string): Report | null {
     const end = line.lastIndexOf("}")
     if (start < 0 || end < start) return null
     try {
-        return JSON.parse(line.slice(start, end + 1)) as Report
+        const raw = JSON.parse(line.slice(start, end + 1))
+        // the rover nests verdict/inspection/photoUrl under `result`
+        return (raw.result ? { ...raw, ...raw.result } : raw) as Report
     } catch {
         return null
     }

@@ -23,6 +23,10 @@ export interface RoverRelay {
 }
 
 export async function startRelayAgent(): Promise<RoverRelay | null> {
+    if (process.env.ROVER_NO_RELAY === "1") {
+        console.log("[relay] ROVER_NO_RELAY=1: Relay disabled in the rover process")
+        return null
+    }
     let agent: RelayAgent
     let parsePage: (text: string) => Promise<any> | any
     try {

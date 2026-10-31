@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.." || exit 1
 trap 'echo "[run-rover] bye"; exit 0' INT TERM
 while true; do
     echo "[run-rover] starting rover ($(date +%T))"
-    npm run rover
+    npx tsx apps/rover/src/index.ts
     echo "[run-rover] rover exited with $?; restarting in 2 s (Ctrl-C to quit)"
     sleep 2
 done

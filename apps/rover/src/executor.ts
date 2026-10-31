@@ -76,7 +76,9 @@ export class Executor {
     }
 
     private async checkEstop() {
-        const s = await actor.getState()
+        // A slow actor must not fail the mission: fall back to the state watch's last snapshot.
+        const s = await actor.getState().catch(() => this.state)
+        if (!s) return
         this.state = s
         if (s.mode === "estopped") {
             await this.rover.stop()

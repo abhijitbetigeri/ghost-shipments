@@ -33,7 +33,7 @@ startHeartbeat(2000)
 logEvent("rover", `rover process up (link ${link.name})`)
 
 const exec = new Executor(rover)
-exec.startStateWatch(500)
+exec.startStateWatch(1500) // the dev actor serialises calls; polling faster piles them up
 // Agent Relay's hosted service returns 503 under load; keep retrying in the background
 // so the executor runs now and Relay attaches whenever the connect succeeds.
 void (async () => {
@@ -43,6 +43,7 @@ void (async () => {
             exec.reporter = relay.reporter
             return
         }
+        if (process.env.ROVER_NO_RELAY === "1") return
         console.error(`[relay] retrying connect in 15 s (attempt ${attempt})`)
         await new Promise((r) => setTimeout(r, 15_000))
     }

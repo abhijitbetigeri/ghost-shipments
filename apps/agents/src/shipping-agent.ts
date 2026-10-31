@@ -83,10 +83,19 @@ async function onMessage(m: RelayMessage, p: Pager) {
             "supabase insert",
         )
         if (error) throw new Error(error.message)
-        await p.reply(threadId, `Ticket ${code} created: ${report.verdict}. ${summary}`)
     } catch (e) {
         console.error(`[${HANDLE}] ticket insert failed:`, (e as Error).message)
         await p.reply(threadId, `Could not file ticket (${(e as Error).message}); verdict was ${report.verdict}.`).catch(() => {})
+        return
+    }
+    console.log(`[${HANDLE}] ticket ${code} filed in Supabase: ${report.verdict}`)
+    // The announcement is best-effort: Relay times out under load, but the ticket is already filed.
+    const announce = `Ticket ${code} created: ${report.verdict}. ${summary}`
+    void logEvent(HANDLE, announce)
+    try {
+        await p.reply(threadId, announce)
+    } catch (e) {
+        console.warn(`[${HANDLE}] ticket announcement to Relay failed (ticket is filed): ${(e as Error).message}`)
     }
 }
 

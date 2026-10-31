@@ -104,6 +104,7 @@
     <span class="pill offline" id="mode">offline</span>
     <button class="btn" id="resetBtn">Reset demo</button>
     <button class="btn" id="resumeBtn">Resume</button>
+    <button class="btn" id="homeBtn" title="Rover placed on HOME facing Bay A">Re-home</button>
     <button class="estop" id="estopBtn">⏹ EMERGENCY STOP</button>
   </header>
 
@@ -320,6 +321,7 @@ async function post(path, body) {
 function flash(text) { const d = $("demo"); const was = d.hidden; d.hidden = false; const old = d.textContent; d.textContent = text; setTimeout(() => { d.textContent = old; d.hidden = was && !demo }, 2500) }
 $("estopBtn").onclick = () => post("/api/estop")
 $("resumeBtn").onclick = () => post("/api/resume")
+$("homeBtn").onclick = () => post("/api/home")
 $("resetBtn").onclick = () => { if (confirm("Reset the demo (rover + warehouse)?")) post("/api/reset") }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); post("/api/estop") } })
 render()

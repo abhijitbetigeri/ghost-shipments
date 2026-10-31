@@ -185,6 +185,15 @@ app.post("/api/resume", async (_req, res) => {
     }
 })
 
+// A human placed the rover on HOME facing Bay A; the rover waits for this after a block or e-stop.
+app.post("/api/home", async (_req, res) => {
+    try {
+        res.json({ ok: true, result: (await call("Rover", "setPose", 5, 0)) ?? null })
+    } catch (e) {
+        actorDown(res, e)
+    }
+})
+
 app.post("/api/bay/:n", async (req, res) => {
     const bay = Number(req.params.n)
     if (![1, 2, 3, 4].includes(bay)) return res.status(400).json({ error: "bay must be 1-4" })

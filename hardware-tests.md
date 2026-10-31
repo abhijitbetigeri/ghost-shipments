@@ -5,6 +5,29 @@ Fill in the **Report back** table at the end and post it in the team chat: the a
 
 Safety first: wheels off the ground (rover on a box) for tests 1–3. Keep a hand on the motor battery switch.
 
+## How to run a test
+1. Open the **Arduino IDE → Serial Monitor**, or any serial terminal, on the Framework laptop. Set the baud to match the firmware and the line ending to **Newline**.
+2. Type a command (for example `F 500 150`) and press Enter.
+3. **Watch** the rover: does it do the expected thing? **Read** the reply in the monitor: `DONE`, `BLOCKED 18`, `D 42`, `OK` or `ERR`.
+4. **Measure** where the test asks for a number: a tape measure for distance, a protractor or tape marks on the floor for turn angles, a phone stopwatch for time.
+5. Tick the box and write the number in the **Report back** table.
+
+If the firmware uses different command letters than `F/B/L/R/S/D/P`, test with whatever it uses. **Post the actual command list in the team chat**, because the bridge has to match it.
+
+## Short on time? Do these 6 first (~10 min)
+| # | Do this | Expect | Record |
+|---|---|---|---|
+| 1 | Open the port from the laptop and send `P` | `OK` after a short boot delay | Port, baud, boot delay |
+| 2 | On the floor, send `L 90` three times | Turns about 90° each time | Adjust ms-per-degree until it's close; record `MS_PER_DEG` |
+| 3 | `F 1000 <normal speed>`, then measure | Moves forward in a straight-ish line | `CM_PER_SEC`, which way it veers |
+| 4 | Drive toward a box | Stops before 20 cm, replies `BLOCKED <cm>` | Stopping distance |
+| 5 | `F 3000 150`, then send `S` after 1 s | Stops immediately | Y/N |
+| 6 | Mid-move, unplug USB or kill the program | Wheels stop within ~0.5 s | Y/N (this is the crash beat in the demo) |
+
+Plus: **test the ghost.** Point the sensor at the actual sheet ghost with `D`. A cloth sheet may not be detected; if so, put a box behind it.
+
+The sections below are the full version.
+
 ---
 
 ## 1. Serial basics (wheels off the ground)

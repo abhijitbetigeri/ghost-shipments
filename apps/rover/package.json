@@ -1,0 +1,25 @@
+{
+  "name": "@app/rover",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "calibrate": "tsx src/calibrate.ts",
+    "selftest": "ROVER_FAKE=1 ROVER_FAKE_FAST=1 tsx src/drive.selftest.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/shared": "*",
+    "@supabase/supabase-js": "^2.109.0",
+    "@types/node": "^26.6.6",
+    "openai": "^6.49.0",
+    "serialport": "^13.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "zod": "^4.6.7"
+  }
+}

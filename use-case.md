@@ -1,3 +1,5 @@
+> Historical planning doc. The final design is in [DECISIONS.md](DECISIONS.md) and [README.md](README.md).
+
 # Rover Relay: Use Case and Build Plan
 
 ## Product

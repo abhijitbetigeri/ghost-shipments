@@ -1,3 +1,5 @@
+> Historical planning doc. The final design is in [DECISIONS.md](DECISIONS.md) and [README.md](README.md).
+
 # Rover Relay: initial plan
 
 > Draft for team review. Haunted Hacks (YC), Sat Oct 31. Hacking runs 11:00–16:00.

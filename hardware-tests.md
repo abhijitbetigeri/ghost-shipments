@@ -1,3 +1,5 @@
+> Historical planning doc. The final design is in [DECISIONS.md](DECISIONS.md) and [README.md](README.md).
+
 # Rover hardware test plan (Arduino + L298N + ultrasonic)
 
 **For:** the hardware owner. **Time box:** ~25 min. Test **on the demo floor** if possible.

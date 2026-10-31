@@ -4,6 +4,8 @@ It's 3 a.m. in a warehouse. The system says shipment **SHP-1042** is staged in *
 
 Built at YC Haunted Hacks (hosts Terse and Agent Relay; organizers Freestyle and Superserve; sponsors OpenAI and Supabase), Oct 31 2026.
 
+**Demo video:** https://www.youtube.com/watch?v=s6QnHTjyqMQ
+
 ## Why this needs Terse and Agent Relay
 
 - **One robot, many agents: who is in control?** The Terse `Rover` actor handles one request at a time. It holds a possession lease for the agent whose mission is running, queues other pages by priority (P1 truck-leaving beats P2 cycle-count), and **REJECTS** direct drive commands from anyone else: `rover is possessed by shipping-agent`.

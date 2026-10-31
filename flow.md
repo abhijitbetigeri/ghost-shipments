@@ -4,6 +4,7 @@
 and every decision shows up live on the **board**.
 
 Interfaces (serial protocol, step and result JSON, actor methods, Relay actions) are in [initial-plan.md](initial-plan.md).
+The 5-point map and the Python `drive(from_point, to_point)` method the rover agent calls are in [hardware-tests.md](hardware-tests.md) Part B.
 The hardware calibration values come from [hardware-tests.md](hardware-tests.md).
 
 ## Main flow: "@rover, find the ghost"
@@ -15,9 +16,9 @@ The hardware calibration values come from [hardware-tests.md](hardware-tests.md)
          Agent Relay (cloud)
                 │ ② delivered to @rover
                 ▼
-   rover-bridge on the Framework (on the rover)
-                │ ③ Mastra RoverPilot turns the goal into steps:
-                │    [move 50cm, look, turn 30°, move 40cm, look …]
+   rover agent (Python, on the Framework on the rover)
+                │ ③ turns the goal into map steps on the fixed 5-point map:
+                │    [goto 2, look, goto 5, goto 1, look …]   (points 1–5, see hardware-tests.md Part B)
                 │ ④ actor.enqueue(@navigator, steps, priority)
                 ▼
    Terse Rover actor (cloud) ── the source of truth
@@ -25,22 +26,23 @@ The hardware calibration values come from [hardware-tests.md](hardware-tests.md)
                 │ ⑥ marks step 1 "inflight", pushes it to the bridge (WebSocket)
                 │    and pushes new state to the board (map, queue, controller)
                 ▼
-   rover-bridge
-                │ ⑦ runStep → USB serial "F 1250 150"
+   rover agent
+                │ ⑦ runStep → drive(from_point, to_point)  (Python, routes via 5)
+                │    → USB serial "R 90", then "F 1250 150"
                 ▼
    Arduino ─► L298N ─► wheels move
                 │ ⑧ ultrasonic sensor: obstacle under 20 cm → stops itself → "BLOCKED 18"
                 ▼
-   rover-bridge ─► ⑨ actor.reportStep({blockedCm:18})
+   rover agent  ─► ⑨ actor.reportStep({blockedCm:18, leg:[5,2], at:null})
                 │
    Terse actor  ─► ⑩ updates the position estimate, logs it, clears inflight,
-                │    tells the bridge to re-plan, posts to #rover:
+                │    (position = point 1–5, or unknown until re-homed), tells the rover agent to re-plan, posts to #rover:
                 │    "@rover: blocked at 18 cm"
                 ▼
    Relay ─► @navigator and @spotter see it
             @spotter: rover.look → bridge takes a camera photo → OpenAI vision
             → photo saved, caption "white shape, left side" → posted in #rover → shown on the board
-            @navigator re-plans: "turn left 30°, approach" → back to ①
+            @navigator re-plans: "go to point 4, look again" → back to ①
 ```
 
 Repeat until Spotter confirms the ghost. Then the rover says a spooky line through its speaker and its screen shows FOUND.

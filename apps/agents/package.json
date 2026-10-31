@@ -1,0 +1,25 @@
+{
+  "name": "@app/agents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./parse": "./src/parse.ts",
+    "./shipping": "./src/shipping-agent.ts",
+    "./inventory": "./src/inventory-agent.ts"
+  },
+  "scripts": {
+    "start": "tsx src/shipping-agent.ts",
+    "inventory": "tsx src/inventory-agent.ts",
+    "conflict": "tsx src/conflict.ts",
+    "smoke": "tsx scripts/relay-smoke.ts",
+    "parse-smoke": "tsx scripts/parse-smoke.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "^0.24.9",
+    "@supabase/supabase-js": "^2.109.0",
+    "dotenv": "^18.0.9",
+    "tsx": "^4.23.15",
+    "zod": "^3.25.76"
+  }
+}

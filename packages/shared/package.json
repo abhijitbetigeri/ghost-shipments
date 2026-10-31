@@ -6,5 +6,9 @@
   "exports": {
     "./types": "./src/types.ts",
     "./relay": "./src/relay.ts"
+  },
+  "dependencies": {
+    "@agent-relay/sdk": "^14.0.0",
+    "zod": "^4.6.7"
   }
 }

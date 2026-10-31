@@ -6,7 +6,8 @@ Submission deadline 16:00. Submit on Builderbase by 15:45 with the repo link, a 
 1. On the demo laptop, three terminals from the repo root:
    - `cd actors && terse actor dev`
    - `npm run server`
-   - `ROVER_FAKE=1 bash scripts/run-rover.sh` (sim) or `bash scripts/run-rover.sh` (real rover, Arduino plugged in)
+   - `ROVER_NO_RELAY=1 ROVER_FAKE=1 bash scripts/run-rover.sh` (sim) or `ROVER_NO_RELAY=1 bash scripts/run-rover.sh` (real rover)
+   - `npm run relay -w apps/rover` (the rover's Relay side runs as its own process: Relay retries would otherwise starve the executor)
 2. Browser window 1: `http://localhost:8787/face` → click **Enable camera & audio**. Keep it visible (webcam + voice).
 3. Big screen: `http://localhost:8787/dashboard`. Press **Reset demo**.
 4. Phone on the same hotspot: `http://<laptop-ip>:8787/bay?bay=2` (the shipping label). Status should show READY.

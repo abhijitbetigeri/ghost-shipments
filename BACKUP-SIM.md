@@ -11,7 +11,8 @@ Say it plainly to judges: "the drive is simulated today; the firmware is in the 
 cp .env.example .env            # fill in OPENAI_API_KEY, SUPABASE_*, RELAY_WORKSPACE_KEY
 (cd actors && terse actor dev)  # terminal 1
 npm run server                  # terminal 2
-ROVER_FAKE=1 bash scripts/run-rover.sh   # terminal 3 (restart loop, needed for the crash beat)
+ROVER_NO_RELAY=1 ROVER_FAKE=1 bash scripts/run-rover.sh   # terminal 3 (restart loop, needed for the crash beat)
+npm run relay -w apps/rover     # terminal 4: the rover's Relay side, kept out of the executor process
 ```
 Open `http://localhost:8787/face` in a browser window, click **Enable camera & audio**, and keep it visible (it's the webcam and the voice).
 Open `/dashboard` on the big screen. Open `/bay?bay=2` on a phone.

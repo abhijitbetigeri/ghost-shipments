@@ -11,7 +11,8 @@
     "calibrate": "tsx src/calibrate.ts",
     "selftest": "ROVER_FAKE=1 ROVER_FAKE_FAST=1 tsx src/drive.selftest.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "console": "tsx src/console.ts"
+    "console": "tsx src/console.ts",
+    "relay": "tsx src/relay-bridge.ts"
   },
   "dependencies": {
     "@app/shared": "*",

@@ -1,6 +1,8 @@
 // Serial link to the rover firmware (DECISIONS.md protocol) + a FakeLink for no-hardware runs.
 // Line-based: one command in flight at a time (mutex). Moves may get `P` keepalives while waiting.
 
+import { existsSync, unlinkSync } from "node:fs"
+
 export interface SendOpts {
     /** send `P` every 200 ms while waiting for the reply (moves; firmware watchdog is 500 ms) */
     keepalive?: boolean
@@ -205,7 +207,9 @@ export class FakeLink implements Link {
                         return `D ${this.distanceCm}`
                     case "L":
                     case "R":
-                        return Number.isFinite(n[0]) ? "DONE" : "ERR"
+                        if (!Number.isFinite(n[0])) return "ERR"
+                        await this.wait(Math.min(n[0] * 6, 3000)) // ~firmware MS_PER_DEG, so the demo paces like real turns
+                        return "DONE"
                     case "B":
                         await this.wait(Math.min(n[0] ?? 0, 3000))
                         return "DONE"
@@ -214,7 +218,13 @@ export class FakeLink implements Link {
                         return "DONE"
                     case "F": {
                         const key = opts.leg ? `${opts.leg[0]}-${opts.leg[1]}` : ""
-                        const cm = this.blockOn[key]
+                        // Demo obstacle: `touch apps/rover/.block` (or ROVER_FAKE_BLOCK_FILE) makes the next forward move BLOCKED.
+                        const blockFile = process.env.ROVER_FAKE_BLOCK_FILE ?? new URL("../.block", import.meta.url).pathname
+                        let cm = this.blockOn[key]
+                        if (cm === undefined && existsSync(blockFile)) {
+                            cm = 18
+                            try { unlinkSync(blockFile) } catch {}
+                        }
                         if (cm !== undefined) {
                             await this.wait(Math.min(n[0] ?? 0, 3000) / 3)
                             return `BLOCKED ${cm}`

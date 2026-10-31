@@ -50,6 +50,7 @@ function sentenceFor(m: Mission, r: MissionResult): string {
 
 // Missions already finished before this bridge started are not re-reported.
 const reported = new Set<string>()
+const attempts = new Map<string, number>()
 const initial = await actor.getState().catch(() => null)
 for (const m of initial?.missions ?? []) if (m.status === "done" || m.status === "failed") reported.add(m.id)
 
@@ -65,7 +66,11 @@ for (;;) {
             await relay.reporter(m, result, sentenceFor(m, result))
             console.log(`[bridge] reported ${m.id}: ${result.verdict}`)
         } catch (e) {
-            console.error(`[bridge] report ${m.id} failed:`, (e as Error).message)
+            // Relay times out under load: try again on the next pass, up to 4 times
+            const n = (attempts.get(m.id) ?? 0) + 1
+            attempts.set(m.id, n)
+            if (n < 4) reported.delete(m.id)
+            console.error(`[bridge] report ${m.id} failed (attempt ${n}):`, (e as Error).message)
         }
     }
 }

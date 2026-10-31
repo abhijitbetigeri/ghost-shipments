@@ -1,0 +1,92 @@
+# Rover hardware test plan (Arduino + L298N + ultrasonic)
+
+**For:** the hardware owner. **Time box:** ~25 min. Test **on the demo floor** if possible.
+Fill in the **Report back** table at the end and post it in the team chat: the actor, the bridge and the simulator all need these numbers.
+
+Safety first: wheels off the ground (rover on a box) for tests 1–3. Keep a hand on the motor battery switch.
+
+---
+
+## 1. Serial basics (wheels off the ground)
+- [ ] Open the serial port from the laptop (not only the Arduino IDE monitor). Note the **port name** and **baud**.
+- [ ] **Boot delay:** opening the port resets the Uno. Measure how long until it answers `P` with `OK`.
+  The bridge must wait this long (or wait for a `READY` line). Consider printing `READY` at the end of `setup()`.
+- [ ] `P` → `OK`. Unknown command (`X`) → `ERR`, with no hang.
+- [ ] Line ending: does it need `\n`, `\r\n` or either? Write it down.
+- [ ] Spam: send 20 `P` commands in 1 s. Every one is answered and nothing is lost or garbled.
+
+## 2. Motion (wheels off the ground, then on the floor)
+- [ ] `F 500 150`: both wheels spin forward, then stop. Reply `DONE`.
+- [ ] `B 500 150`: both wheels reverse.
+- [ ] `L 90` / `R 90`: wheels spin in opposite directions. Correct direction for each?
+- [ ] **Deadband:** the lowest speed at which the rover actually moves on the floor = `MIN_SPEED`.
+- [ ] **Max safe speed:** the fastest speed you'd run near people = `MAX_SPEED`. It should be enforced in firmware.
+- [ ] **Straightness:** `F 2000 <normal speed>`. Does it veer left or right, and by how many cm over 2 s? Trim the left/right PWM if needed.
+- [ ] **Distance per ms:** `F 1000 <normal speed>`, then measure the cm travelled. Repeat 3×. → `CM_PER_SEC`.
+
+## 3. Turn calibration (on the demo floor; this matters most)
+- [ ] `L 90` three times. Measure the actual angle each time. Adjust the ms-per-degree until it's within ±10°. → `MS_PER_DEG`.
+- [ ] Same for `R 90`. Left and right may differ.
+- [ ] `L 360` once: how far off is it?
+
+## 4. Ultrasonic distance (`D`)
+- [ ] Measure at 10, 20, 50 and 100 cm against a flat box with a tape measure. Note the error.
+- [ ] **Nothing in range:** what does it return (0? 400? timeout)? The bridge must treat it as "clear", not "blocked".
+- [ ] **The ghost:** test against the actual ghost (a **cloth sheet absorbs ultrasound** and may not be detected!). If it reads badly, put a cardboard box behind or inside the ghost.
+- [ ] At a 30–45° angle to a wall: does the reading jump or vanish?
+- [ ] Minimum reliable distance (most sensors are blind under ~3 cm).
+
+## 5. Obstacle stop (reflex)
+- [ ] Drive at `normal speed` toward a box. It stops before 20 cm and replies `BLOCKED <cm>`.
+- [ ] Repeat at `MAX_SPEED`. How far does it travel **after** detecting the obstacle? → `STOP_DISTANCE_CM`.
+- [ ] While blocked, `B` (reverse) and `L`/`R` (turns) **still work**, so the rover can escape. Only forward is refused.
+- [ ] A person walks in front of it while it's moving: it stops.
+
+## 6. Watchdog (500 ms)
+- [ ] Define the rule. Is the watchdog measured from the **last command**, or from the **end of the commanded move**?
+  Recommended: a move of N ms is allowed to finish, and the watchdog starts after that. Write down which rule it uses.
+- [ ] `F 3000 150`, then send nothing: the move runs for 3 s and stops (it doesn't stop at 500 ms, unless that's the rule).
+- [ ] **Unplug USB mid-move:** the wheels stop within ~0.5 s.
+- [ ] **Kill the bridge program mid-move** (Ctrl-C): the wheels stop. *This is the crash beat in the demo.*
+
+## 7. Emergency stop
+- [ ] `F 3000 150`, then `S` after 1 s: it stops **immediately** (under 100 ms), and the reply arrives.
+- [ ] Is `S` accepted while the Arduino is busy with a move? The firmware must check serial **during** moves, not only between them.
+
+## 8. Power
+- [ ] Motor battery voltage at rest and while moving. Note it.
+- [ ] Does the **Uno reset** when the motors start or stall? (Watch for the `READY` banner reappearing.) If it does, the cause is power or ground: use a separate supply and a common ground.
+- [ ] Run for 10 min of on-and-off driving. Does the speed drop as the battery drains? Is a spare battery or charger on hand?
+- [ ] A physical kill switch on the motor battery is reachable from outside the rover.
+
+## 9. Full-system smoke test
+- [ ] With the Framework laptop **mounted on the rover**, run 10 mixed commands (`F`, `L`, `D`, `R`, `B`, `S`) from a script on the laptop. No resets, no lost replies, nothing tips over.
+
+---
+
+## Report back (paste into team chat)
+
+| Item | Value |
+|---|---|
+| Serial port / baud / line ending | |
+| Boot delay after opening port (ms) | |
+| `MIN_SPEED` / `MAX_SPEED` (PWM) | |
+| `CM_PER_SEC` at normal speed | |
+| `MS_PER_DEG` left / right | |
+| Veer over 2 s (cm, direction) | |
+| Distance error at 20 / 50 / 100 cm | |
+| "Nothing in range" reading | |
+| Ghost detected? (sheet / box) | |
+| `STOP_DISTANCE_CM` at max speed | |
+| Watchdog rule (from last cmd / from end of move) | |
+| E-stop works mid-move? (Y/N) | |
+| USB unplug / bridge kill stops wheels? (Y/N) | |
+| Uno resets under load? (Y/N) | |
+| Battery voltage rest / moving | |
+| Anything flaky | |
+
+**Who uses these numbers:**
+- The bridge: port, boot delay, line ending, watchdog rule.
+- The actor: `CM_PER_SEC` and `MS_PER_DEG` for estimating position.
+- The simulator: the same constants plus `STOP_DISTANCE_CM`.
+- The demo: whether the ghost is detected.

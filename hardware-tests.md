@@ -14,6 +14,25 @@ Safety first: wheels off the ground (rover on a box) for tests 1–3. Keep a han
 
 If the firmware uses different command letters than `F/B/L/R/S/D/P`, test with whatever it uses. **Post the actual command list in the team chat**, because the bridge has to match it.
 
+### Command reference: use the column that matches the firmware on the Uno
+The firmware in [use-case.md](use-case.md) (Day's plan) uses `M/S/H` at **115200 baud**, newline-terminated. Translate each test like this:
+
+| Test asks for | This plan (`F/B/L/R/S/D/P`) | use-case.md firmware (`M/S/H`) | Expected reply |
+|---|---|---|---|
+| Forward 1 s | `F 1000 150` | `M 150 150 1000` | `DONE` |
+| Back 0.5 s | `B 500 150` | `M -150 -150 500` | `DONE` |
+| Turn left in place | `L 90` | `M -150 150 <ms>` (find the ms for 90°) | `DONE` |
+| Turn right in place | `R 90` | `M 150 -150 <ms>` | `DONE` |
+| Stop now | `S` | `S` | `OK` |
+| Alive check | `P` | `H` | (heartbeat; may not reply) |
+| Read distance | `D` | **not in that firmware.** Add a `D` command if the ultrasonic sensor is wired | `D <cm>` |
+
+Notes for the `M/S/H` firmware:
+- Moves are capped at **2000 ms** per command. Use two commands for longer tests.
+- Its watchdog stops the motors if **no line arrives for 500 ms**, and the bridge sends `H` every 200 ms. **In the Serial Monitor you can't type fast enough**, so a manual `M ... 1000` may stop early at 500 ms. Either test watchdog-sensitive moves with a tiny script that sends `H` every 200 ms, or expect the early stop.
+- Turns are time-based. Calibrate `msPer90deg` (turn) and `msPerMeter` (forward), the names its `calibration.json` uses.
+- There is **no obstacle stop** unless the ultrasonic sensor is added to the firmware. Skip test 5 in that case and tell the team.
+
 ## Short on time? Do these 6 first (~10 min)
 | # | Do this | Expect | Record |
 |---|---|---|---|

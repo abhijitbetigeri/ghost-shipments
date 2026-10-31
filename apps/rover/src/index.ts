@@ -34,8 +34,19 @@ logEvent("rover", `rover process up (link ${link.name})`)
 
 const exec = new Executor(rover)
 exec.startStateWatch(500)
-const relay = await startRelayAgent()
-if (relay) exec.reporter = relay.reporter
+// Agent Relay's hosted service returns 503 under load; keep retrying in the background
+// so the executor runs now and Relay attaches whenever the connect succeeds.
+void (async () => {
+    for (let attempt = 1; ; attempt++) {
+        const relay = await startRelayAgent()
+        if (relay) {
+            exec.reporter = relay.reporter
+            return
+        }
+        console.error(`[relay] retrying connect in 15 s (attempt ${attempt})`)
+        await new Promise((r) => setTimeout(r, 15_000))
+    }
+})()
 
 console.log("[rover] executor running")
 await exec.run()

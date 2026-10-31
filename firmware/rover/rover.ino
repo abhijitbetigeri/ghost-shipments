@@ -1,4 +1,4 @@
-// Smart-PhySystem rover firmware
+// Ghost Shipments rover firmware
 // Arduino Uno + L298N (tank drive, 2 DC motors, no encoders) + HC-SR04.
 // Serial protocol: see DECISIONS.md, "Firmware serial protocol".
 //

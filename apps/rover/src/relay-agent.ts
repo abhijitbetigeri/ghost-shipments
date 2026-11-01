@@ -51,9 +51,18 @@ export async function startRelayAgent(): Promise<RoverRelay | null> {
         }
     }
 
+    // A page whose send "timed out" on Relay may still have been delivered, and the sender retries:
+    // treat an identical page from the same agent within 90 s as the same request.
+    const recentPages = new Map<string, { at: number; missionId: string }>()
     agent.onMessage(async (m) => {
         logEvent("relay", `${m.from}: ${m.text}`)
         if (!/@rover\b/i.test(m.text)) return
+        const dupKey = `${m.from}|${m.text.trim()}`
+        const dup = recentPages.get(dupKey)
+        if (dup && Date.now() - dup.at < 90_000) {
+            await reply(m.messageId, `Already on it (${dup.missionId}), duplicate page ignored.`)
+            return
+        }
         try {
             const parsed = await withTimeout(Promise.resolve(parsePage(m.text)), 20_000, "parsePage")
             const input: MissionInput = {
@@ -65,6 +74,7 @@ export async function startRelayAgent(): Promise<RoverRelay | null> {
                 threadId: m.messageId,
             }
             const { missionId, position } = await actor.submitMission(input)
+            recentPages.set(dupKey, { at: Date.now(), missionId })
             if (position === 0) await reply(m.messageId, `On my way 🛞 (${missionId})`)
             else {
                 const s = await actor.getState().catch(() => null)

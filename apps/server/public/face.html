@@ -106,6 +106,20 @@ function grabJpeg() {
 $("enableBtn").onclick = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 } }, audio: false })
+    // Prefer the built-in camera: macOS Continuity Camera can silently pick a nearby iPhone, which
+    // gives black frames while that phone is in use. `?cam=<label substring>` overrides.
+    try {
+      const want = new URLSearchParams(location.search).get("cam") || "facetime|built-in|integrated"
+      const re = new RegExp(want, "i")
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput")
+      const current = stream.getVideoTracks()[0]?.getSettings().deviceId
+      const pick = cams.find(d => re.test(d.label))
+      if (pick && pick.deviceId !== current) {
+        stream.getTracks().forEach(t => t.stop())
+        stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: pick.deviceId }, width: { ideal: 640 } }, audio: false })
+      }
+      $("caption").textContent = "camera: " + (stream.getVideoTracks()[0]?.label || "unknown")
+    } catch (e) { console.warn("camera pick", e) }
     video.srcObject = stream
   } catch (e) { $("caption").textContent = "camera blocked: " + e.message }
   if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("Rover online."); u.pitch = 0.7; if (voice) u.voice = voice;
